@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+	<title>Face Detector JS</title>
+	<style>
+		.img {
+			position:relative;
+		}
+		.img img {
+			max-width:500px;
+			max-height:900px;
+		}
+
+		#backgroundAlignBox {
+			font-size:0;
+		}
+
+		.thumbnailBg {
+			display:inline-block;
+			width:200px;
+			height:200px;
+			background-size: cover;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+		.aligning .thumbnailBg.thumbnail-top {
+			background-position: top;
+		}
+		.aligning .thumbnailBg.thumbnail-bottom {
+			background-position: bottom;
+		}
+		.aligning .thumbnailBg.thumbnail-left {
+			background-position: left;
+		}
+		.aligning .thumbnailBg.thumbnail-right {
+			background-position: right;
+		}
+
+		.thumbnailImg {
+			list-style: none;
+			margin: 0;
+			padding-inline: 0;
+			display:flex;
+			flex-wrap: wrap;
+			width:100%;
+		}
+		.thumbnailImg li {
+			flex:auto;
+			min-width:150px;
+		}
+		.thumbnailImg a {
+			position:relative;
+			display:block;
+			width:100%;
+			overflow:hidden;
+		}
+		.thumbnailImg .dummy {
+			margin-top:100%;
+		}
+		.thumbnailImg img {
+			position:absolute;
+			top:0;
+			height:100%;
+			left:50%;
+			transform: translateX(-50%);
+		}
+		.thumbnailImg img.thumbnail-left {
+			left:0;
+			transform: none;
+		}
+		.thumbnailImg img.thumbnail-right {
+			left:auto;
+			right:0;
+			transform: none;
+		}
+		.thumbnailImg img.thumbnail-top, .thumbnailImg img.thumbnail-middle, .thumbnailImg img.thumbnail-bottom {
+			left:0;
+			width:100%;
+			height:auto;
+		}
+		.thumbnailImg img.thumbnail-top {
+			transform: none;
+		}
+		.thumbnailImg img.thumbnail-middle {
+			top:50%;
+			transform: translateY(-50%);
+		}
+		.thumbnailImg img.thumbnail-bottom {
+			top:auto;
+			bottom:0;
+			transform:none;
+		}
+
+		.detectedBox {
+			position:absolute;
+			box-sizing: border-box;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-family: monospace;
+			font-weight: bold;
+			font-size:2em;
+		}
+	</style>
+</head>
+<body>
+<script src="../facedetector.js"></script>
+<script>
+	// https://www.w3schools.com/colors/colors_palettes.asp flower palettes
+	let colors = ['#c83349', '#e06377', '#eeac99', '#f9d5e5', '#d6d4e0', '#5b9aa0', '#b8a9c9', '#622569'], colori = 0;
+
+	function rotateColor(reset) {
+		if(reset) { colori = 0; return }
+		const color = colors[colori];
+		colori ++;
+		if(colori >= colors.length) colori = 0;
+		return color;
+	}
+
+	function drawBox(parent, face, color, text) {
+		const div = document.createElement('DIV');
+		div.className = 'detectedBox';
+		div.style.border = '3px solid ' + color;
+		div.style.boxSizing = 'border-box';
+		div.style.width = face.w + 'px';
+		div.style.height = face.w + 'px';
+		div.style.left = face.x + 'px';
+		div.style.top = face.y + 'px';
+		if(text) {
+			div.style.color = color;
+			div.innerText = text;
+		}
+		parent.appendChild(div);
+	}
+
+	function detectAndDrawBox(img, resSize) {
+		const face = XenoFaceDetector.Detect(img, img.naturalWidth, img.naturalHeight, false, resSize), ratio = img.width / img.naturalWidth;
+		if(!face) {
+			console.log(['img tag', 'not detected', img.src]);
+			return;
+		}
+		face.x *= ratio;
+		face.y *= ratio;
+		face.w *= ratio;
+
+		drawBox(img.parentNode, face, 'red');
+
+		console.log(['img tag', face, img.src, img.naturalWidth, img.naturalHeight]);
+	}
+
+	function detectAndDrawBoxMultiple(img, resSize, callback) {
+		const faces = XenoFaceDetector.Detect(img, img.naturalWidth, img.naturalHeight, true, resSize), ratio = img.width / img.naturalWidth;
+		if(!faces || !faces.length) {
+			if(callback) callback(0, 0, false);
+			console.log(['img tag', 'not detected', img.src]);
+			return;
+		}
+
+		rotateColor(true);
+		faces.forEach((face, i) => {
+			face.x *= ratio;
+			face.y *= ratio;
+			face.w *= ratio;
+
+			drawBox(img.parentNode, face, rotateColor(), i + 1);
+		});
+
+		if(callback) callback(img.width, img.height, faces);
+
+		console.log(['img tag', faces, img.src, , img.naturalWidth, img.naturalHeight]);
+	}
+
+	function showDirectionValue(width, height, faces) {
+		const direction = document.getElementById('direction');
+		if(!faces || faces.length > 1) {
+			direction.innerText = 'center';
+			return;
+		}
+		direction.innerText = XenoFaceDetector.AlignDirection(width, height, faces[0].x, faces[0].y, faces[0].w)
+	}
+
+	// thumbnail align img tag
+	function alignImg(img, multiple) {
+		console.log(['align', XenoFaceDetector.OnLoadAlignDirectionAddClass(img, 'thumbnail-', multiple), img.src]);
+	}
+
+	// local image
+	function removeDivs(parent) {
+		const divs = parent.querySelectorAll('div');
+		divs.forEach(div => {
+			div.parentNode.removeChild(div);
+		});
+	}
+	function setLocalImg(file) {
+		const localImg = document.getElementById('localImg');
+		removeDivs(localImg.parentNode);
+		if(!file.files.length) return;
+		const reader = new FileReader();
+		reader.onload = () => {
+			localImg.src = reader.result;
+		};
+		reader.readAsDataURL(file.files[0]);
+	}
+
+	function setUrlImg(form) {
+		const localImg = document.getElementById('localImg');
+		removeDivs(localImg.parentNode);
+		localImg.src = form.url.value;
+	}
+
+	function setImgRes(form) {
+		const localImg = document.getElementById('localImg');
+		removeDivs(localImg.parentNode);
+		localImg.src = localImg.src;
+	}
+</script>
+<h1>Face Detector JS</h1>
+<p>canvas 를 이용해 이미지에 있는 얼굴을 감지합니다.</p>
+<p><a href="https://github.com/crucifyer/facedetector-js">Github 으로 이동</a></p>
+<h2>img tag</h2>
+<div class="img"><img src="iu.lilac.jpg" onload="detectAndDrawBox(this)"></div>
+<h3>얼굴 하나만 인식</h3>
+<div class="img"><img src="people.jpg" onload="detectAndDrawBox(this)"></div>
+<h3>여러 얼굴 인식</h3>
+<div class="img"><img src="people.jpg" onload="detectAndDrawBoxMultiple(this)"></div>
+<div class="img"><img src="twice.9.jpg" onload="detectAndDrawBoxMultiple(this)"></div>
+<h4>이미지 크기를 조절하면 인식률이 달라지지만 1px 차이로도 큰 차이가 남</h4>
+<div class="img"><img src="twice.9.jpg" onload="detectAndDrawBoxMultiple(this, 323)"></div>
+<div class="img"><img src="twice.9.jpg" onload="detectAndDrawBoxMultiple(this, 329)"></div>
+<h3>인식 안됨</h3>
+<div class="img"><img src="iu.hilac.jpg" onload="detectAndDrawBox(this)"></div>
+<hr>
+<h2>canvas tag</h2>
+<canvas></canvas>
+<hr>
+<h2>thumbnail align</h2>
+<h3>background <label><input type="checkbox" id="backgroundAlignButton" checked>click here</label></h3>
+<div id="backgroundAlignBox" class="aligning">
+	<div class="thumbnailBg" data-src="iu.lilac.jpg"></div>
+	<div class="thumbnailBg" data-src="people.jpg"></div>
+	<div class="thumbnailBg" data-src="iu.hilac.jpg"></div>
+	<div class="thumbnailBg" data-src="iu.chameleon.jpg"></div>
+	<div class="thumbnailBg" data-src="iu.heart.jpg"></div>
+</div>
+<h3>img tag</h3>
+<ul class="thumbnailImg aligning">
+	<li><a><div class="dummy"></div><img src="iu.lilac.jpg" onload="alignImg(this)"></a></li>
+	<li><a><div class="dummy"></div><img src="people.jpg" onload="alignImg(this)"></a></li>
+	<li><a><div class="dummy"></div><img src="iu.hilac.jpg" onload="alignImg(this)"></a></li>
+	<li><a><div class="dummy"></div><img src="iu.chameleon.jpg" onload="alignImg(this)"></a></li>
+	<li><a><div class="dummy"></div><img src="iu.heart.jpg" onload="alignImg(this)"></a></li>
+</ul>
+<h3>img tag - 여러 얼굴 인식시 정렬안함</h3>
+<ul class="thumbnailImg aligning">
+	<li><a><div class="dummy"></div><img src="iu.lilac.jpg" onload="alignImg(this, true)"></a></li>
+	<li><a><div class="dummy"></div><img src="people.jpg" onload="alignImg(this, true)"></a></li>
+	<li><a><div class="dummy"></div><img src="iu.hilac.jpg" onload="alignImg(this, true)"></a></li>
+	<li><a><div class="dummy"></div><img src="iu.chameleon.jpg" onload="alignImg(this, true)"></a></li>
+	<li><a><div class="dummy"></div><img src="iu.heart.jpg" onload="alignImg(this, true)"></a></li>
+</ul>
+<hr>
+<h2>직접 테스트</h2>
+<h3>로컬 파일</h3>
+<input type="file" onchange="setLocalImg(this)">
+<h3>URL</h3>
+<form onsubmit="setUrlImg(this); return false;">
+	<input type="url" name="url" placeholder="https://">
+	<input type="submit" value="적용">
+</form>
+<h3>이미지 크기</h3>
+<form name="resSizeForm" onsubmit="setImgRes(this); return false;">
+	<input type="range" name="resSize" min="100" max="700" value="280" oninput="this.form.resSize2.value = this.value">
+	<input type="number" name="resSize2" value="280" oninput="this.form.resSize.value = this.value">
+	<input type="submit" value="적용">
+</form>
+<p>정렬방향: <span id="direction"></span></p>
+<div class="img"><img id="localImg" crossorigin="anonymous" onload="detectAndDrawBoxMultiple(this, resSizeForm.resSize.value * 1, showDirectionValue)"></div>
+<script>
+(function(w, d) {
+	// canvas tag
+	(function () {
+		const img = new Image();
+		img.crossOrigin = 'anonymous';
+		img.addEventListener('load', () => {
+			const canvas = document.getElementsByTagName('canvas')[0],
+				context = canvas.getContext('2d');
+			canvas.width = img.naturalWidth;
+			canvas.height = img.naturalHeight;
+			context.canvas.width = img.naturalWidth;
+			context.canvas.height = img.naturalHeight;
+			context.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
+			const face = XenoFaceDetector.Detect(canvas, img.naturalWidth, img.naturalHeight);
+			if (!face) {
+				console.log(['canvas tag', 'not detected', img.src]);
+				return;
+			}
+			context.beginPath();
+			context.lineWidth = 3;
+			context.strokeStyle = 'red';
+			context.rect(face.x, face.y, face.w, face.w);
+			context.stroke();
+			console.log(['canvas tag', face, img.src]);
+		});
+		img.src = 'iu.chameleon.jpg';
+	})();
+
+	// no display image, detect only
+	(function () {
+		const img = new Image();
+		img.crossOrigin = 'anonymous';
+		img.addEventListener('load', () => {
+			console.log(['no display image', XenoFaceDetector.Detect(img, img.naturalWidth, img.naturalHeight) || 'not detected', img.src]);
+		});
+		img.src = 'iu.lilac.jpg';
+	})();
+	
+	// thumbnail align background
+	(function () {
+		d.querySelectorAll('.thumbnailBg').forEach(thumb => {
+			const imgsrc = thumb.getAttribute('data-src');
+			thumb.style.backgroundImage = 'url(' + imgsrc + ')';
+			const img = new Image();
+			img.crossOrigin = 'anonymous';
+			img.addEventListener('load', () => {
+				const direction = XenoFaceDetector.OnLoadAlignDirection(img, 'thumbnail-');
+				thumb.classList.add(direction);
+				console.log(['background', direction, img.src]);
+			});
+			img.src = imgsrc;
+		});
+	})();
+
+	(function() {
+		const btn = d.getElementById('backgroundAlignButton'),
+			box = d.getElementById('backgroundAlignBox');
+		btn.addEventListener('click', () => {
+			if(btn.checked) box.classList.add('aligning');
+			else box.classList.remove('aligning');
+		});
+	})();
+})(window, document);
+</script>
+</body>
+</html>
