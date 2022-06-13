@@ -8,7 +8,7 @@
 	//</editor-fold>
 
 	function faceDetect(img, im_width, im_height, multiple, resSize) {
-		const resize = resSize ? resSize : 280;
+		const resize = resSize ? resSize : 281;
 		let
 			diff_width = resize - im_width,
 			diff_height = resize - im_height,
