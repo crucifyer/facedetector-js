@@ -1,5 +1,6 @@
 /*
  fork from https://github.com/mauricesvay/php-facedetection
+ Project : https://github.com/crucifyer/facedetector-js
  License : GPL-2.0
 */
 (function(w, d) {
